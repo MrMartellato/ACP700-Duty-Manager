@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Transport Canada CAR 700 Duty Time Calculator for Pilots">
+    <title>ACP700 Duty Manager | Transport Canada Regulations</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                            <path d="M2 17l10 5 10-5"/>
+                            <path d="M2 12l10 5 10-5"/>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <h1>ACP700</h1>
+                        <span>Duty Manager</span>
+                    </div>
+                </div>
+                <div class="header-status">
+                    <div class="current-time" id="currentTime">--:--</div>
+                    <div class="zulu-time" id="zuluTime">--:-- Z</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Compliance Dashboard -->
+            <section class="dashboard-section">
+                <div class="section-header">
+                    <h2>Compliance Status</h2>
+                    <div class="status-indicator" id="overallStatus">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Calculating...</span>
+                    </div>
+                </div>
+                
+                <div class="compliance-grid">
+                    <div class="compliance-card" id="fdpCard">
+                        <div class="card-header">
+                            <span class="card-title">Flight Duty Period</span>
+                            <span class="card-status status-good">OK</span>
+                        </div>
+                        <div class="card-value">
+                            <span class="value-current" id="fdpCurrent">0:00</span>
+                            <span class="value-separator">/</span>
+                            <span class="value-max" id="fdpMax">14:00</span>
+                        </div>
+                        <div class="card-progress">
+                            <div class="progress-bar" id="fdpProgress" style="width: 0%"></div>
+                        </div>
+                        <div class="card-remaining" id="fdpRemaining">14h 00m remaining</div>
+                    </div>
+
+                    <div class="compliance-card" id="flightTimeCard">
+                        <div class="card-header">
+                            <span class="card-title">Flight Time</span>
+                            <span class="card-status status-good">OK</span>
+                        </div>
+                        <div class="card-value">
+                            <span class="value-current" id="flightCurrent">0:00</span>
+                            <span class="value-separator">/</span>
+                            <span class="value-max" id="flightMax">8:00</span>
+                        </div>
+                        <div class="card-progress">
+                            <div class="progress-bar" id="flightProgress" style="width: 0%"></div>
+                        </div>
+                        <div class="card-remaining" id="flightRemaining">8h 00m remaining</div>
+                    </div>
+
+                    <div class="compliance-card" id="duty7Card">
+                        <div class="card-header">
+                            <span class="card-title">7-Day Duty</span>
+                            <span class="card-status status-good">OK</span>
+                        </div>
+                        <div class="card-value">
+                            <span class="value-current" id="duty7Current">0:00</span>
+                            <span class="value-separator">/</span>
+                            <span class="value-max">60:00</span>
+                        </div>
+                        <div class="card-progress">
+                            <div class="progress-bar" id="duty7Progress" style="width: 0%"></div>
+                        </div>
+                        <div class="card-remaining" id="duty7Remaining">60h 00m remaining</div>
+                    </div>
+
+                    <div class="compliance-card" id="duty28Card">
+                        <div class="card-header">
+                            <span class="card-title">28-Day Duty</span>
+                            <span class="card-status status-good">OK</span>
+                        </div>
+                        <div class="card-value">
+                            <span class="value-current" id="duty28Current">0:00</span>
+                            <span class="value-separator">/</span>
+                            <span class="value-max">190:00</span>
+                        </div>
+                        <div class="card-progress">
+                            <div class="progress-bar" id="duty28Progress" style="width: 0%"></div>
+                        </div>
+                        <div class="card-remaining" id="duty28Remaining">190h 00m remaining</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Calculator Panels -->
+            <div class="calculator-grid">
+                <!-- FDP Calculator -->
+                <section class="calculator-panel">
+                    <div class="panel-header">
+                        <h2>FDP Calculator</h2>
+                        <span class="panel-subtitle">Calculate Maximum Flight Duty Period</span>
+                    </div>
+                    
+                    <form class="calculator-form" id="fdpForm">
+                        <div class="form-group">
+                            <label for="reportTime">Report Time (Local)</label>
+                            <input type="time" id="reportTime" name="reportTime" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="sectors">Number of Sectors</label>
+                            <select id="sectors" name="sectors" required>
+                                <option value="1">1 Sector</option>
+                                <option value="2">2 Sectors</option>
+                                <option value="3">3 Sectors</option>
+                                <option value="4">4 Sectors</option>
+                                <option value="5">5 Sectors</option>
+                                <option value="6">6+ Sectors</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="acclimatized">Acclimatization Status</label>
+                            <select id="acclimatized" name="acclimatized" required>
+                                <option value="acclimatized">Acclimatized</option>
+                                <option value="unacclimatized">Unacclimatized</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn-calculate">
+                            <span>Calculate FDP</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M5 12h14M12 5l7 7-7 7"/>
+                            </svg>
+                        </button>
+                    </form>
+
+                    <div class="result-panel" id="fdpResult">
+                        <div class="result-row">
+                            <span class="result-label">Maximum FDP</span>
+                            <span class="result-value" id="maxFdpResult">--:--</span>
+                        </div>
+                        <div class="result-row">
+                            <span class="result-label">End of Duty</span>
+                            <span class="result-value" id="endDutyResult">--:--</span>
+                        </div>
+                        <div class="result-row">
+                            <span class="result-label">Window of Circadian Low (WOCL)</span>
+                            <span class="result-value" id="woclResult">--</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Rest Calculator -->
+                <section class="calculator-panel">
+                    <div class="panel-header">
+                        <h2>Rest Calculator</h2>
+                        <span class="panel-subtitle">Calculate Minimum Rest Requirements</span>
+                    </div>
+                    
+                    <form class="calculator-form" id="restForm">
+                        <div class="form-group">
+                            <label for="dutyEndTime">Duty End Time (Local)</label>
+                            <input type="time" id="dutyEndTime" name="dutyEndTime" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="dutyLength">Preceding Duty Period (Hours)</label>
+                            <input type="number" id="dutyLength" name="dutyLength" min="0" max="20" step="0.5" placeholder="e.g., 12.5" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="timezonesCrossed">Time Zones Crossed</label>
+                            <select id="timezonesCrossed" name="timezonesCrossed">
+                                <option value="0">0-2 Time Zones</option>
+                                <option value="3">3-4 Time Zones</option>
+                                <option value="5">5+ Time Zones</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn-calculate">
+                            <span>Calculate Rest</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M5 12h14M12 5l7 7-7 7"/>
+                            </svg>
+                        </button>
+                    </form>
+
+                    <div class="result-panel" id="restResult">
+                        <div class="result-row">
+                            <span class="result-label">Minimum Rest</span>
+                            <span class="result-value" id="minRestResult">--:--</span>
+                        </div>
+                        <div class="result-row">
+                            <span class="result-label">Earliest Next Report</span>
+                            <span class="result-value" id="nextReportResult">--:--</span>
+                        </div>
+                        <div class="result-row highlight">
+                            <span class="result-label">Recommended Rest</span>
+                            <span class="result-value" id="recommendedRestResult">--:--</span>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Duty Logger -->
+            <section class="logger-section">
+                <div class="section-header">
+                    <h2>Log Duty Period</h2>
+                    <button class="btn-clear" id="clearHistory" title="Clear History">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <form class="logger-form" id="loggerForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="logDate">Date</label>
+                            <input type="date" id="logDate" name="logDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="logReportTime">Report Time</label>
+                            <input type="time" id="logReportTime" name="logReportTime" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="logReleaseTime">Release Time</label>
+                            <input type="time" id="logReleaseTime" name="logReleaseTime" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="logFlightTime">Flight Time (Hours)</label>
+                            <input type="number" id="logFlightTime" name="logFlightTime" min="0" max="20" step="0.1" placeholder="e.g., 6.5" required>
+                        </div>
+                        <button type="submit" class="btn-log">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 5v14M5 12h14"/>
+                            </svg>
+                            <span>Log Duty</span>
+                        </button>
+                    </div>
+                </form>
+
+                <div class="history-table-container">
+                    <table class="history-table" id="historyTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Report</th>
+                                <th>Release</th>
+                                <th>Duty Time</th>
+                                <th>Flight Time</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyBody">
+                            <tr class="empty-row">
+                                <td colspan="6">No duty periods logged. Add your first entry above.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Quick Reference -->
+            <section class="reference-section">
+                <div class="section-header">
+                    <h2>Quick Reference</h2>
+                    <span class="reference-subtitle">CAR 700 Subpart 7 - Key Limits</span>
+                </div>
+
+                <div class="reference-grid">
+                    <div class="reference-card">
+                        <h3>Maximum FDP by Report Time</h3>
+                        <table class="reference-table">
+                            <thead>
+                                <tr>
+                                    <th>Report Time</th>
+                                    <th>1-2 Sectors</th>
+                                    <th>3-4 Sectors</th>
+                                    <th>5+ Sectors</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>0600-0659</td>
+                                    <td>13:00</td>
+                                    <td>12:30</td>
+                                    <td>12:00</td>
+                                </tr>
+                                <tr>
+                                    <td>0700-1159</td>
+                                    <td>14:00</td>
+                                    <td>13:30</td>
+                                    <td>13:00</td>
+                                </tr>
+                                <tr>
+                                    <td>1200-1359</td>
+                                    <td>13:00</td>
+                                    <td>12:30</td>
+                                    <td>12:00</td>
+                                </tr>
+                                <tr>
+                                    <td>1400-1759</td>
+                                    <td>12:00</td>
+                                    <td>11:30</td>
+                                    <td>11:00</td>
+                                </tr>
+                                <tr>
+                                    <td>1800-2159</td>
+                                    <td>11:00</td>
+                                    <td>10:30</td>
+                                    <td>10:00</td>
+                                </tr>
+                                <tr>
+                                    <td>2200-0559</td>
+                                    <td>10:00</td>
+                                    <td>9:30</td>
+                                    <td>9:00</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="reference-card">
+                        <h3>Key Regulatory Limits</h3>
+                        <div class="limits-list">
+                            <div class="limit-item">
+                                <span class="limit-label">Max Flight Time (Single Pilot)</span>
+                                <span class="limit-value">8 hours</span>
+                            </div>
+                            <div class="limit-item">
+                                <span class="limit-label">Max Flight Time (Augmented)</span>
+                                <span class="limit-value">13 hours</span>
+                            </div>
+                            <div class="limit-item">
+                                <span class="limit-label">Min Rest (Standard)</span>
+                                <span class="limit-value">10 hours</span>
+                            </div>
+                            <div class="limit-item">
+                                <span class="limit-label">Min Rest (After 12h+ FDP)</span>
+                                <span class="limit-value">12 hours</span>
+                            </div>
+                            <div class="limit-item">
+                                <span class="limit-label">Max Duty in 7 Days</span>
+                                <span class="limit-value">60 hours</span>
+                            </div>
+                            <div class="limit-item">
+                                <span class="limit-label">Max Duty in 28 Days</span>
+                                <span class="limit-value">190 hours</span>
+                            </div>
+                            <div class="limit-item">
+                                <span class="limit-label">Max Flight Time in 28 Days</span>
+                                <span class="limit-value">112 hours</span>
+                            </div>
+                            <div class="limit-item">
+                                <span class="limit-label">Max Flight Time in 365 Days</span>
+                                <span class="limit-value">1000 hours</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>ACP700 Duty Manager &mdash; Based on Transport Canada CAR 700 Subpart 7 (2021 Amendments)</p>
+            <p class="disclaimer">This tool is for reference only. Always verify with official regulations and your operator's Operations Manual.</p>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/storage.js"></script>
+    <script src="js/fdp-calculator.js"></script>
+    <script src="js/rest-calculator.js"></script>
+    <script src="js/compliance.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
