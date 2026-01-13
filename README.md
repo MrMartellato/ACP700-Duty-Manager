@@ -8,7 +8,7 @@ A web-based Flight Duty Period (FDP) calculator and compliance tracker for Canad
 
 ### FDP Calculator
 - Calculate maximum Flight Duty Period based on report time
-- Accounts for number of flight sectors (1-2, 3-4, 5+)
+- Accounts for number of flight sectors/legs (1-2, 3-4, 5+)
 - Acclimatization status adjustments
 - Window of Circadian Low (WOCL) encroachment warnings
 
