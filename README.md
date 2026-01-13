@@ -2,7 +2,7 @@
 
 A web-based Flight Duty Period (FDP) calculator and compliance tracker for Canadian pilots, based on **Transport Canada CAR 700 Subpart 7** (2021 Amendments).
 
-![ACP700 Duty Manager Screenshot](https://raw.githubusercontent.com/MrMartellato/ACP700-Duty-Manager/main/screenshot.png)
+![ACP700 Duty Manager Screenshot](https://raw.githubusercontent.com/MrMartellato/ACP700-Duty-Manager/master/screenshot.png)
 
 ## Features
 
@@ -114,20 +114,16 @@ ACP700 Duty Manager/
 
 ## Disclaimer
 
-**This tool is for reference only.** Always verify calculations with:
+**This tool was built for the course ACP700 (Air Carrier Procedures) for Seneca Polytechnic, and should only be used as a reference.** Always verify calculations with:
 - Official Transport Canada regulations (CAR 700 Subpart 7)
 - Your operator's Operations Manual
 - Your company's flight operations department
 
-The developer assumes no responsibility for scheduling decisions made using this tool.
+The developers assume no responsibility for scheduling decisions made using this tool.
 
 ## License
 
 MIT License - feel free to use, modify, and distribute.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## References
 
