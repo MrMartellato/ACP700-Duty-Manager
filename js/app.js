@@ -525,7 +525,7 @@
         
         // Calculate max FDP based on report time and sectors
         const fdpResult = FDPCalculator.calculate(reportTime, sectors, 'acclimatized');
-        const maxFdpMinutes = fdpResult.success ? fdpResult.maxFDPMinutes : 840;
+        const maxFdpMinutes = fdpResult.success ? fdpResult.maxFDP : 840;
         
         const result = StorageManager.startDuty({
             reportTime: reportTime,
@@ -621,7 +621,7 @@
             state.currentDuty.acclimatized ? 'acclimatized' : 'unacclimatized'
         );
         
-        const maxFdpMinutes = fdpResult.success ? fdpResult.maxFDPMinutes : 840;
+        const maxFdpMinutes = fdpResult.success ? fdpResult.maxFDP : 840;
         
         // Update active duty
         StorageManager.updateActiveDuty({
