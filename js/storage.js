@@ -12,7 +12,8 @@ const StorageManager = (function() {
     const KEYS = {
         DUTY_RECORDS: 'acp700_duty_records',
         PREFERENCES: 'acp700_preferences',
-        LAST_SYNC: 'acp700_last_sync'
+        LAST_SYNC: 'acp700_last_sync',
+        ACTIVE_DUTY: 'acp700_active_duty'
     };
 
     /**
@@ -353,6 +354,147 @@ const StorageManager = (function() {
     }
 
     /**
+     * Get active duty state
+     * 
+     * @returns {Object|null} Active duty object or null if not on duty
+     */
+    function getActiveDuty() {
+        if (!isStorageAvailable()) return null;
+
+        try {
+            const data = localStorage.getItem(KEYS.ACTIVE_DUTY);
+            if (!data) return null;
+            
+            return JSON.parse(data);
+        } catch (e) {
+            console.error('Error reading active duty:', e);
+            return null;
+        }
+    }
+
+    /**
+     * Start a new duty period
+     * 
+     * @param {Object} dutyInfo - Duty information
+     * @returns {Object} Result with success status
+     */
+    function startDuty(dutyInfo) {
+        if (!isStorageAvailable()) {
+            return { success: false, error: 'Storage not available' };
+        }
+
+        // Check if already on duty
+        const currentDuty = getActiveDuty();
+        if (currentDuty) {
+            return { success: false, error: 'Already on duty. End current duty first.' };
+        }
+
+        const activeDuty = {
+            startTime: dutyInfo.startTime || new Date().toISOString(),
+            reportTime: dutyInfo.reportTime || new Date().toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                hour12: false 
+            }),
+            sectors: dutyInfo.sectors || 2,
+            acclimatized: dutyInfo.acclimatized !== false,
+            maxFdpMinutes: dutyInfo.maxFdpMinutes || 840, // 14 hours default
+            date: new Date().toISOString().split('T')[0]
+        };
+
+        try {
+            localStorage.setItem(KEYS.ACTIVE_DUTY, JSON.stringify(activeDuty));
+            return { success: true, duty: activeDuty };
+        } catch (e) {
+            console.error('Error starting duty:', e);
+            return { success: false, error: 'Failed to save active duty' };
+        }
+    }
+
+    /**
+     * Update active duty (e.g., change sectors)
+     * 
+     * @param {Object} updates - Fields to update
+     * @returns {Object} Result with success status
+     */
+    function updateActiveDuty(updates) {
+        const currentDuty = getActiveDuty();
+        if (!currentDuty) {
+            return { success: false, error: 'Not currently on duty' };
+        }
+
+        const updatedDuty = { ...currentDuty, ...updates };
+
+        try {
+            localStorage.setItem(KEYS.ACTIVE_DUTY, JSON.stringify(updatedDuty));
+            return { success: true, duty: updatedDuty };
+        } catch (e) {
+            console.error('Error updating duty:', e);
+            return { success: false, error: 'Failed to update active duty' };
+        }
+    }
+
+    /**
+     * End the current duty period
+     * 
+     * @param {Object} endInfo - End of duty information
+     * @returns {Object} Result with duty record
+     */
+    function endDuty(endInfo = {}) {
+        const currentDuty = getActiveDuty();
+        if (!currentDuty) {
+            return { success: false, error: 'Not currently on duty' };
+        }
+
+        const endTime = endInfo.endTime || new Date();
+        const releaseTime = endTime.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            hour12: false 
+        });
+
+        // Create a duty record from the active duty
+        const dutyRecord = {
+            date: currentDuty.date,
+            reportTime: currentDuty.reportTime,
+            releaseTime: releaseTime,
+            flightTime: endInfo.flightTime || 0,
+            sectors: currentDuty.sectors
+        };
+
+        // Clear active duty
+        try {
+            localStorage.removeItem(KEYS.ACTIVE_DUTY);
+        } catch (e) {
+            console.error('Error clearing active duty:', e);
+        }
+
+        return {
+            success: true,
+            duty: currentDuty,
+            record: dutyRecord,
+            shouldLog: endInfo.logDuty !== false
+        };
+    }
+
+    /**
+     * Cancel active duty without logging
+     * 
+     * @returns {boolean} Success status
+     */
+    function cancelActiveDuty() {
+        if (!isStorageAvailable()) return false;
+
+        try {
+            localStorage.removeItem(KEYS.ACTIVE_DUTY);
+            return true;
+        } catch (e) {
+            console.error('Error canceling duty:', e);
+            return false;
+        }
+    }
+
+    /**
      * Export all data as JSON
      * 
      * @returns {string} JSON string of all data
@@ -427,6 +569,12 @@ const StorageManager = (function() {
         exportData,
         importData,
         isStorageAvailable,
+        // Active duty tracking
+        getActiveDuty,
+        startDuty,
+        updateActiveDuty,
+        endDuty,
+        cancelActiveDuty,
         KEYS,
         DEFAULT_PREFERENCES
     };

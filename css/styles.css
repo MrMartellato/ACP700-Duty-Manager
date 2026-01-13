@@ -379,6 +379,124 @@ body::before {
     color: var(--color-text-muted);
 }
 
+/* Duty Tracking Controls */
+.fdp-tracking-card {
+    position: relative;
+}
+
+.fdp-tracking-card.active-duty {
+    border-color: var(--color-accent-primary);
+    box-shadow: var(--shadow-glow);
+}
+
+.fdp-tracking-card.active-duty::before {
+    content: '';
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 8px;
+    height: 8px;
+    background: var(--color-status-good);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.2); }
+}
+
+.duty-controls {
+    margin-top: 16px;
+    display: flex;
+    gap: 8px;
+}
+
+.btn-start-duty,
+.btn-end-duty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 16px;
+    border: none;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-primary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.btn-start-duty {
+    background: var(--gradient-button);
+    color: var(--color-text-inverse);
+}
+
+.btn-start-duty:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 212, 170, 0.4);
+}
+
+.btn-start-duty svg,
+.btn-end-duty svg {
+    width: 16px;
+    height: 16px;
+}
+
+.btn-end-duty {
+    background: rgba(255, 61, 113, 0.15);
+    color: var(--color-status-danger);
+    border: 1px solid var(--color-status-danger);
+}
+
+.btn-end-duty:hover {
+    background: var(--color-status-danger);
+    color: white;
+}
+
+.duty-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-border);
+}
+
+.duty-info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.85rem;
+}
+
+.duty-info-label {
+    color: var(--color-text-secondary);
+}
+
+.duty-info-value {
+    font-family: var(--font-mono);
+    color: var(--color-accent-primary);
+}
+
+.duty-sectors-select {
+    background: var(--color-bg-input);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.duty-sectors-select:focus {
+    outline: none;
+    border-color: var(--color-accent-primary);
+}
+
 /* Calculator Grid */
 .calculator-grid {
     display: grid;

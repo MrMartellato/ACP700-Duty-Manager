@@ -48,10 +48,10 @@
                 </div>
                 
                 <div class="compliance-grid">
-                    <div class="compliance-card" id="fdpCard">
+                    <div class="compliance-card fdp-tracking-card" id="fdpCard">
                         <div class="card-header">
                             <span class="card-title">Flight Duty Period</span>
-                            <span class="card-status status-good">OK</span>
+                            <span class="card-status status-good" id="fdpStatus">OK</span>
                         </div>
                         <div class="card-value">
                             <span class="value-current" id="fdpCurrent">0:00</span>
@@ -61,7 +61,39 @@
                         <div class="card-progress">
                             <div class="progress-bar" id="fdpProgress" style="width: 0%"></div>
                         </div>
-                        <div class="card-remaining" id="fdpRemaining">14h 00m remaining</div>
+                        <div class="card-remaining" id="fdpRemaining">Not on duty</div>
+                        <div class="duty-controls" id="dutyControls">
+                            <button class="btn-start-duty" id="btnStartDuty" title="Start tracking duty period">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="5 3 19 12 5 21 5 3"/>
+                                </svg>
+                                <span>Start Duty</span>
+                            </button>
+                            <button class="btn-end-duty" id="btnEndDuty" style="display: none;" title="End duty period">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="6" y="4" width="4" height="16"/>
+                                    <rect x="14" y="4" width="4" height="16"/>
+                                </svg>
+                                <span>End Duty</span>
+                            </button>
+                        </div>
+                        <div class="duty-info" id="dutyInfo" style="display: none;">
+                            <div class="duty-info-row">
+                                <span class="duty-info-label">Started:</span>
+                                <span class="duty-info-value" id="dutyStartTime">--:--</span>
+                            </div>
+                            <div class="duty-info-row">
+                                <span class="duty-info-label">Sectors:</span>
+                                <select id="activeDutySectors" class="duty-sectors-select">
+                                    <option value="1">1</option>
+                                    <option value="2" selected>2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5</option>
+                                    <option value="6">6+</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="compliance-card" id="flightTimeCard">

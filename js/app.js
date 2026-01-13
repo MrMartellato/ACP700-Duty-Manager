@@ -15,7 +15,8 @@
     const state = {
         currentDuty: null,
         preferences: null,
-        initialized: false
+        initialized: false,
+        dutyTimerInterval: null
     };
 
     /**
@@ -33,6 +34,14 @@
         fdpMax: document.getElementById('fdpMax'),
         fdpProgress: document.getElementById('fdpProgress'),
         fdpRemaining: document.getElementById('fdpRemaining'),
+        fdpStatus: document.getElementById('fdpStatus'),
+        
+        // Duty Tracking Controls
+        btnStartDuty: document.getElementById('btnStartDuty'),
+        btnEndDuty: document.getElementById('btnEndDuty'),
+        dutyInfo: document.getElementById('dutyInfo'),
+        dutyStartTime: document.getElementById('dutyStartTime'),
+        activeDutySectors: document.getElementById('activeDutySectors'),
         
         flightTimeCard: document.getElementById('flightTimeCard'),
         flightCurrent: document.getElementById('flightCurrent'),
@@ -103,6 +112,9 @@
         // Update compliance dashboard
         updateComplianceDashboard();
         
+        // Check for active duty and restore if exists
+        restoreActiveDuty();
+        
         state.initialized = true;
         console.log('ACP700 Duty Manager initialized');
     }
@@ -127,6 +139,11 @@
         elements.reportTime.addEventListener('change', previewFDP);
         elements.sectors.addEventListener('change', previewFDP);
         elements.acclimatized.addEventListener('change', previewFDP);
+        
+        // Duty tracking controls
+        elements.btnStartDuty.addEventListener('click', handleStartDuty);
+        elements.btnEndDuty.addEventListener('click', handleEndDuty);
+        elements.activeDutySectors.addEventListener('change', handleSectorsChange);
     }
 
     /**
@@ -432,11 +449,16 @@
      * Update FDP card (shows max FDP for reference)
      */
     function updateFDPCard() {
-        // FDP card shows static max values for reference
+        // Don't update if we have an active duty (handled by timer)
+        if (state.currentDuty) {
+            return;
+        }
+        
+        // FDP card shows static values when not on duty
         elements.fdpCurrent.textContent = '0:00';
         elements.fdpMax.textContent = '14:00';
         elements.fdpProgress.style.width = '0%';
-        elements.fdpRemaining.textContent = 'Max FDP varies by report time';
+        elements.fdpRemaining.textContent = 'Not on duty';
     }
 
     /**
@@ -485,6 +507,266 @@
         } else {
             textEl.textContent = 'All Clear';
         }
+    }
+
+    /**
+     * Handle Start Duty button click
+     */
+    function handleStartDuty() {
+        const now = new Date();
+        const reportTime = now.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            hour12: false 
+        });
+        
+        // Get sectors from the selector
+        const sectors = elements.activeDutySectors.value;
+        
+        // Calculate max FDP based on report time and sectors
+        const fdpResult = FDPCalculator.calculate(reportTime, sectors, 'acclimatized');
+        const maxFdpMinutes = fdpResult.success ? fdpResult.maxFDPMinutes : 840;
+        
+        const result = StorageManager.startDuty({
+            reportTime: reportTime,
+            sectors: parseInt(sectors),
+            maxFdpMinutes: maxFdpMinutes,
+            acclimatized: true
+        });
+        
+        if (result.success) {
+            state.currentDuty = result.duty;
+            
+            // Update UI
+            elements.btnStartDuty.style.display = 'none';
+            elements.btnEndDuty.style.display = 'flex';
+            elements.dutyInfo.style.display = 'flex';
+            elements.dutyStartTime.textContent = reportTime;
+            elements.fdpCard.classList.add('active-duty');
+            
+            // Update max FDP display
+            elements.fdpMax.textContent = fdpResult.success ? fdpResult.maxFDPReadable : '14h';
+            
+            // Start the timer
+            startDutyTimer();
+            
+            showToast('Duty period started at ' + reportTime, 'success');
+        } else {
+            showToast(result.error, 'error');
+        }
+    }
+
+    /**
+     * Handle End Duty button click
+     */
+    function handleEndDuty() {
+        if (!state.currentDuty) {
+            showToast('No active duty to end', 'warning');
+            return;
+        }
+        
+        const shouldLog = confirm('Do you want to log this duty period?\n\nClick OK to log, Cancel to discard.');
+        
+        // Prompt for flight time if logging
+        let flightTime = 0;
+        if (shouldLog) {
+            const flightTimeStr = prompt('Enter total flight time (hours):', '0');
+            if (flightTimeStr !== null) {
+                flightTime = parseFloat(flightTimeStr) || 0;
+            }
+        }
+        
+        const result = StorageManager.endDuty({
+            flightTime: flightTime,
+            logDuty: shouldLog
+        });
+        
+        if (result.success) {
+            // Stop the timer
+            stopDutyTimer();
+            
+            // Log the duty if requested
+            if (shouldLog && result.record) {
+                const logResult = StorageManager.addDutyRecord(result.record);
+                if (logResult.success) {
+                    loadHistory();
+                    showToast('Duty period ended and logged', 'success');
+                } else {
+                    showToast('Duty ended but failed to log: ' + logResult.error, 'warning');
+                }
+            } else {
+                showToast('Duty period ended (not logged)', 'success');
+            }
+            
+            // Reset UI
+            resetDutyUI();
+            updateComplianceDashboard();
+        } else {
+            showToast(result.error, 'error');
+        }
+    }
+
+    /**
+     * Handle sectors change during active duty
+     */
+    function handleSectorsChange() {
+        if (!state.currentDuty) return;
+        
+        const sectors = elements.activeDutySectors.value;
+        
+        // Recalculate max FDP
+        const fdpResult = FDPCalculator.calculate(
+            state.currentDuty.reportTime, 
+            sectors, 
+            state.currentDuty.acclimatized ? 'acclimatized' : 'unacclimatized'
+        );
+        
+        const maxFdpMinutes = fdpResult.success ? fdpResult.maxFDPMinutes : 840;
+        
+        // Update active duty
+        StorageManager.updateActiveDuty({
+            sectors: parseInt(sectors),
+            maxFdpMinutes: maxFdpMinutes
+        });
+        
+        // Update state
+        state.currentDuty.sectors = parseInt(sectors);
+        state.currentDuty.maxFdpMinutes = maxFdpMinutes;
+        
+        // Update display
+        elements.fdpMax.textContent = fdpResult.success ? fdpResult.maxFDPReadable : '14h';
+        
+        // Immediately update the FDP card
+        updateDutyDisplay();
+    }
+
+    /**
+     * Restore active duty from storage on page load
+     */
+    function restoreActiveDuty() {
+        const activeDuty = StorageManager.getActiveDuty();
+        
+        if (activeDuty) {
+            state.currentDuty = activeDuty;
+            
+            // Update UI
+            elements.btnStartDuty.style.display = 'none';
+            elements.btnEndDuty.style.display = 'flex';
+            elements.dutyInfo.style.display = 'flex';
+            elements.dutyStartTime.textContent = activeDuty.reportTime;
+            elements.activeDutySectors.value = activeDuty.sectors;
+            elements.fdpCard.classList.add('active-duty');
+            
+            // Calculate and display max FDP
+            const fdpResult = FDPCalculator.calculate(
+                activeDuty.reportTime, 
+                activeDuty.sectors.toString(), 
+                activeDuty.acclimatized ? 'acclimatized' : 'unacclimatized'
+            );
+            elements.fdpMax.textContent = fdpResult.success ? fdpResult.maxFDPReadable : '14h';
+            
+            // Start the timer
+            startDutyTimer();
+            
+            console.log('Restored active duty from', activeDuty.reportTime);
+        }
+    }
+
+    /**
+     * Start the duty timer
+     */
+    function startDutyTimer() {
+        // Clear any existing timer
+        if (state.dutyTimerInterval) {
+            clearInterval(state.dutyTimerInterval);
+        }
+        
+        // Update immediately
+        updateDutyDisplay();
+        
+        // Update every second
+        state.dutyTimerInterval = setInterval(updateDutyDisplay, 1000);
+    }
+
+    /**
+     * Stop the duty timer
+     */
+    function stopDutyTimer() {
+        if (state.dutyTimerInterval) {
+            clearInterval(state.dutyTimerInterval);
+            state.dutyTimerInterval = null;
+        }
+        state.currentDuty = null;
+    }
+
+    /**
+     * Update the duty display with current elapsed time
+     */
+    function updateDutyDisplay() {
+        if (!state.currentDuty) return;
+        
+        const startTime = new Date(state.currentDuty.startTime);
+        const now = new Date();
+        const elapsedMs = now - startTime;
+        const elapsedMinutes = Math.floor(elapsedMs / 60000);
+        
+        const hours = Math.floor(elapsedMinutes / 60);
+        const minutes = elapsedMinutes % 60;
+        const maxMinutes = state.currentDuty.maxFdpMinutes || 840;
+        
+        // Update current time
+        elements.fdpCurrent.textContent = `${hours}:${minutes.toString().padStart(2, '0')}`;
+        
+        // Update progress bar
+        const percentage = Math.min((elapsedMinutes / maxMinutes) * 100, 100);
+        elements.fdpProgress.style.width = `${percentage}%`;
+        
+        // Update remaining time
+        const remainingMinutes = Math.max(maxMinutes - elapsedMinutes, 0);
+        const remainingHours = Math.floor(remainingMinutes / 60);
+        const remainingMins = remainingMinutes % 60;
+        elements.fdpRemaining.textContent = `${remainingHours}h ${remainingMins}m remaining`;
+        
+        // Update status based on percentage
+        const statusEl = elements.fdpStatus;
+        const card = elements.fdpCard;
+        
+        card.classList.remove('warning', 'danger');
+        
+        if (percentage >= 100) {
+            card.classList.add('danger');
+            statusEl.className = 'card-status status-danger';
+            statusEl.textContent = 'EXCEEDED';
+            elements.fdpRemaining.textContent = 'FDP LIMIT EXCEEDED!';
+        } else if (percentage >= 90) {
+            card.classList.add('danger');
+            statusEl.className = 'card-status status-danger';
+            statusEl.textContent = 'CRITICAL';
+        } else if (percentage >= 75) {
+            card.classList.add('warning');
+            statusEl.className = 'card-status status-warning';
+            statusEl.textContent = 'CAUTION';
+        } else {
+            statusEl.className = 'card-status status-good';
+            statusEl.textContent = 'OK';
+        }
+    }
+
+    /**
+     * Reset duty tracking UI to initial state
+     */
+    function resetDutyUI() {
+        elements.btnStartDuty.style.display = 'flex';
+        elements.btnEndDuty.style.display = 'none';
+        elements.dutyInfo.style.display = 'none';
+        elements.fdpCard.classList.remove('active-duty', 'warning', 'danger');
+        elements.fdpCurrent.textContent = '0:00';
+        elements.fdpMax.textContent = '14:00';
+        elements.fdpProgress.style.width = '0%';
+        elements.fdpRemaining.textContent = 'Not on duty';
+        elements.fdpStatus.className = 'card-status status-good';
+        elements.fdpStatus.textContent = 'OK';
+        elements.activeDutySectors.value = '2';
     }
 
     /**
