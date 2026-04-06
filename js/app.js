@@ -71,6 +71,8 @@
         maxFdpResult: document.getElementById('maxFdpResult'),
         endDutyResult: document.getElementById('endDutyResult'),
         woclResult: document.getElementById('woclResult'),
+        sectorsGroup: document.getElementById('sectorsGroup'),
+        activeSectorsRow: document.getElementById('activeSectorsRow'),
         
         // Rest Calculator
         restForm: document.getElementById('restForm'),
@@ -142,7 +144,13 @@
         // Real-time FDP preview on input change
         elements.reportTime.addEventListener('change', previewFDP);
         elements.sectors.addEventListener('change', previewFDP);
-        elements.avgFlightDuration.addEventListener('change', previewFDP);
+        elements.avgFlightDuration.addEventListener('change', function() {
+            const isDayVFR = elements.avgFlightDuration.value === 'dayvfr';
+            elements.sectorsGroup.style.display = isDayVFR ? 'none' : 'block';
+            if (isDayVFR) elements.sectors.removeAttribute('required');
+            else elements.sectors.setAttribute('required', '');
+            previewFDP();
+        });
         elements.acclimatized.addEventListener('change', function() {
             const isUnacclimatized = elements.acclimatized.value === 'unacclimatized';
             elements.refTimeGroup.style.display = isUnacclimatized ? 'block' : 'none';
@@ -154,7 +162,11 @@
         elements.btnStartDuty.addEventListener('click', handleStartDuty);
         elements.btnEndDuty.addEventListener('click', handleEndDuty);
         elements.activeDutySectors.addEventListener('change', handleSectorsChange);
-        elements.activeAvgDuration.addEventListener('change', handleSectorsChange);
+        elements.activeAvgDuration.addEventListener('change', function() {
+            const isDayVFR = elements.activeAvgDuration.value === 'dayvfr';
+            elements.activeSectorsRow.style.display = isDayVFR ? 'none' : 'flex';
+            handleSectorsChange();
+        });
     }
 
     /**
@@ -791,6 +803,7 @@
         elements.fdpStatus.textContent = 'OK';
         elements.activeDutySectors.value = '2';
         elements.activeAvgDuration.value = 'gte50';
+        elements.activeSectorsRow.style.display = 'flex';
     }
 
     /**

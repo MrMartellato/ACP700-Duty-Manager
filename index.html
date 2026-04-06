@@ -82,16 +82,9 @@
                                 <span class="duty-info-label">Started:</span>
                                 <span class="duty-info-value" id="dutyStartTime">--:--</span>
                             </div>
-                            <div class="duty-info-row">
+                            <div class="duty-info-row" id="activeSectorsRow">
                                 <span class="duty-info-label">Flights:</span>
-                                <select id="activeDutySectors" class="duty-sectors-select">
-                                    <option value="1">1</option>
-                                    <option value="2" selected>2</option>
-                                    <option value="3">3</option>
-                                    <option value="4">4</option>
-                                    <option value="5">5</option>
-                                    <option value="6">6+</option>
-                                </select>
+                                <input type="number" id="activeDutySectors" class="duty-sectors-select" min="1" max="99" value="2" style="width:60px;">
                             </div>
                             <div class="duty-info-row">
                                 <span class="duty-info-label">Avg Duration:</span>
@@ -170,16 +163,9 @@
                             <input type="time" id="reportTime" name="reportTime" required>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group" id="sectorsGroup">
                             <label for="sectors">Number of Flights</label>
-                            <select id="sectors" name="sectors" required>
-                                <option value="1">1 Flight</option>
-                                <option value="2">2 Flights</option>
-                                <option value="3">3 Flights</option>
-                                <option value="4">4 Flights</option>
-                                <option value="5">5 Flights</option>
-                                <option value="6">6+ Flights</option>
-                            </select>
+                            <input type="number" id="sectors" name="sectors" min="1" max="99" value="2" placeholder="e.g. 4" required>
                         </div>
 
                         <div class="form-group">
