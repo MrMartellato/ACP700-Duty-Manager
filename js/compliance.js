@@ -29,7 +29,7 @@ const ComplianceChecker = (function() {
         
         // Duty Time limits
         DUTY_7_DAY: 3600,               // 60 hours
-        DUTY_28_DAY: 11400,             // 190 hours
+        DUTY_28_DAY: 11520,             // 192 hours
         DUTY_365_DAY: 96000,            // 1600 hours (annual limit)
         
         // Rest requirements

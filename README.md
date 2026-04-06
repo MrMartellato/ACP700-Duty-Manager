@@ -22,7 +22,7 @@ A web-based Flight Duty Period (FDP) calculator and compliance tracker for Canad
 
 ### Compliance Dashboard
 - Real-time 7-day duty tracking (60-hour limit)
-- Real-time 28-day duty tracking (190-hour limit)
+- Real-time 28-day duty tracking (192-hour limit)
 - 28-day flight time tracking (112-hour limit)
 - Visual progress bars with status indicators (OK/Caution/Exceeded)
 
@@ -45,7 +45,7 @@ A web-based Flight Duty Period (FDP) calculator and compliance tracker for Canad
 | Maximum Flight Time (Augmented) | 13 hours |
 | Minimum Rest Period | 10-14 hours (based on duty length) |
 | Maximum Duty in 7 Days | 60 hours |
-| Maximum Duty in 28 Days | 190 hours |
+| Maximum Duty in 28 Days | 192 hours |
 | Maximum Flight Time in 28 Days | 112 hours |
 | Maximum Flight Time in 365 Days | 1000 hours |
 
