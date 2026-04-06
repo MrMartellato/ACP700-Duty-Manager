@@ -83,7 +83,7 @@
                                 <span class="duty-info-value" id="dutyStartTime">--:--</span>
                             </div>
                             <div class="duty-info-row">
-                                <span class="duty-info-label">Sectors:</span>
+                                <span class="duty-info-label">Flights:</span>
                                 <select id="activeDutySectors" class="duty-sectors-select">
                                     <option value="1">1</option>
                                     <option value="2" selected>2</option>
@@ -91,6 +91,15 @@
                                     <option value="4">4</option>
                                     <option value="5">5</option>
                                     <option value="6">6+</option>
+                                </select>
+                            </div>
+                            <div class="duty-info-row">
+                                <span class="duty-info-label">Avg Duration:</span>
+                                <select id="activeAvgDuration" class="duty-sectors-select">
+                                    <option value="lt30">&lt; 30 min</option>
+                                    <option value="30to49">30&ndash;49 min</option>
+                                    <option value="gte50" selected>&ge; 50 min</option>
+                                    <option value="dayvfr">Day VFR</option>
                                 </select>
                             </div>
                         </div>
@@ -162,14 +171,24 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="sectors">Number of Sectors</label>
+                            <label for="sectors">Number of Flights</label>
                             <select id="sectors" name="sectors" required>
-                                <option value="1">1 Sector</option>
-                                <option value="2">2 Sectors</option>
-                                <option value="3">3 Sectors</option>
-                                <option value="4">4 Sectors</option>
-                                <option value="5">5 Sectors</option>
-                                <option value="6">6+ Sectors</option>
+                                <option value="1">1 Flight</option>
+                                <option value="2">2 Flights</option>
+                                <option value="3">3 Flights</option>
+                                <option value="4">4 Flights</option>
+                                <option value="5">5 Flights</option>
+                                <option value="6">6+ Flights</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="avgFlightDuration">Avg Flight Duration</label>
+                            <select id="avgFlightDuration" name="avgFlightDuration" required>
+                                <option value="lt30">Less than 30 min &mdash; 700.28(2)</option>
+                                <option value="30to49">30 to 49 min &mdash; 700.28(3)</option>
+                                <option value="gte50" selected>50 min or more &mdash; 700.28(4)</option>
+                                <option value="dayvfr">Day VFR (any duration) &mdash; 700.28(9)</option>
                             </select>
                         </div>
 
@@ -179,6 +198,11 @@
                                 <option value="acclimatized">Acclimatized</option>
                                 <option value="unacclimatized">Unacclimatized</option>
                             </select>
+                        </div>
+
+                        <div class="form-group" id="refTimeGroup" style="display:none;">
+                            <label for="refTime">Reference Time <small>(local time at last acclimatized location &mdash; 700.19(2)(b))</small></label>
+                            <input type="time" id="refTime" name="refTime">
                         </div>
 
                         <button type="submit" class="btn-calculate">
@@ -320,62 +344,114 @@
             <section class="reference-section">
                 <div class="section-header">
                     <h2>Quick Reference</h2>
-                    <span class="reference-subtitle">CAR 700 Subpart 7 - Key Limits</span>
+                    <span class="reference-subtitle">CAR 700 Subpart 7 &mdash; Maximum FDP Tables (s. 700.28)</span>
                 </div>
 
                 <div class="reference-grid">
+
+                    <!-- Table 1: Avg flight < 30 min -->
                     <div class="reference-card">
-                        <h3>Maximum FDP by Report Time</h3>
+                        <h3>Max FDP &mdash; Avg Flight &lt; 30 min <small>(s. 700.28(2))</small></h3>
                         <table class="reference-table">
                             <thead>
                                 <tr>
-                                    <th>Report Time</th>
-                                    <th>1-2 Sectors</th>
-                                    <th>3-4 Sectors</th>
-                                    <th>5+ Sectors</th>
+                                    <th>Start Time of FDP</th>
+                                    <th>1&ndash;11 Flights</th>
+                                    <th>12&ndash;17 Flights</th>
+                                    <th>18+ Flights</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr>
-                                    <td>0600-0659</td>
-                                    <td>13:00</td>
-                                    <td>12:30</td>
-                                    <td>12:00</td>
-                                </tr>
-                                <tr>
-                                    <td>0700-1159</td>
-                                    <td>14:00</td>
-                                    <td>13:30</td>
-                                    <td>13:00</td>
-                                </tr>
-                                <tr>
-                                    <td>1200-1359</td>
-                                    <td>13:00</td>
-                                    <td>12:30</td>
-                                    <td>12:00</td>
-                                </tr>
-                                <tr>
-                                    <td>1400-1759</td>
-                                    <td>12:00</td>
-                                    <td>11:30</td>
-                                    <td>11:00</td>
-                                </tr>
-                                <tr>
-                                    <td>1800-2159</td>
-                                    <td>11:00</td>
-                                    <td>10:30</td>
-                                    <td>10:00</td>
-                                </tr>
-                                <tr>
-                                    <td>2200-0559</td>
-                                    <td>10:00</td>
-                                    <td>9:30</td>
-                                    <td>9:00</td>
-                                </tr>
+                                <tr><td>00:00&ndash;03:59</td><td>9 h</td><td>9 h</td><td>9 h</td></tr>
+                                <tr><td>04:00&ndash;04:59</td><td>10 h</td><td>9 h</td><td>9 h</td></tr>
+                                <tr><td>05:00&ndash;05:59</td><td>11 h</td><td>10 h</td><td>9 h</td></tr>
+                                <tr><td>06:00&ndash;06:59</td><td>12 h</td><td>11 h</td><td>10 h</td></tr>
+                                <tr><td>07:00&ndash;12:59</td><td>13 h</td><td>12 h</td><td>11 h</td></tr>
+                                <tr><td>13:00&ndash;16:59</td><td>12.5 h</td><td>11.5 h</td><td>10.5 h</td></tr>
+                                <tr><td>17:00&ndash;21:59</td><td>12 h</td><td>11 h</td><td>10 h</td></tr>
+                                <tr><td>22:00&ndash;22:59</td><td>11 h</td><td>10 h</td><td>9 h</td></tr>
+                                <tr><td>23:00&ndash;23:59</td><td>10 h</td><td>9 h</td><td>9 h</td></tr>
                             </tbody>
                         </table>
                     </div>
 
+                    <!-- Table 2: Avg flight 30–49 min -->
+                    <div class="reference-card">
+                        <h3>Max FDP &mdash; Avg Flight 30&ndash;49 min <small>(s. 700.28(3))</small></h3>
+                        <table class="reference-table">
+                            <thead>
+                                <tr>
+                                    <th>Start Time of FDP</th>
+                                    <th>1&ndash;7 Flights</th>
+                                    <th>8&ndash;11 Flights</th>
+                                    <th>12+ Flights</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>00:00&ndash;03:59</td><td>9 h</td><td>9 h</td><td>9 h</td></tr>
+                                <tr><td>04:00&ndash;04:59</td><td>10 h</td><td>9 h</td><td>9 h</td></tr>
+                                <tr><td>05:00&ndash;05:59</td><td>11 h</td><td>10 h</td><td>9 h</td></tr>
+                                <tr><td>06:00&ndash;06:59</td><td>12 h</td><td>11 h</td><td>10 h</td></tr>
+                                <tr><td>07:00&ndash;12:59</td><td>13 h</td><td>12 h</td><td>11 h</td></tr>
+                                <tr><td>13:00&ndash;16:59</td><td>12.5 h</td><td>11.5 h</td><td>10.5 h</td></tr>
+                                <tr><td>17:00&ndash;21:59</td><td>12 h</td><td>11 h</td><td>10 h</td></tr>
+                                <tr><td>22:00&ndash;22:59</td><td>11 h</td><td>10 h</td><td>9 h</td></tr>
+                                <tr><td>23:00&ndash;23:59</td><td>10 h</td><td>9 h</td><td>9 h</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Table 3: Avg flight >= 50 min -->
+                    <div class="reference-card">
+                        <h3>Max FDP &mdash; Avg Flight &ge; 50 min <small>(s. 700.28(4))</small></h3>
+                        <table class="reference-table">
+                            <thead>
+                                <tr>
+                                    <th>Start Time of FDP</th>
+                                    <th>1&ndash;4 Flights</th>
+                                    <th>5&ndash;6 Flights</th>
+                                    <th>7+ Flights</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>00:00&ndash;03:59</td><td>9 h</td><td>9 h</td><td>9 h</td></tr>
+                                <tr><td>04:00&ndash;04:59</td><td>10 h</td><td>9 h</td><td>9 h</td></tr>
+                                <tr><td>05:00&ndash;05:59</td><td>11 h</td><td>10 h</td><td>9 h</td></tr>
+                                <tr><td>06:00&ndash;06:59</td><td>12 h</td><td>11 h</td><td>10 h</td></tr>
+                                <tr><td>07:00&ndash;12:59</td><td>13 h</td><td>12 h</td><td>11 h</td></tr>
+                                <tr><td>13:00&ndash;16:59</td><td>12.5 h</td><td>11.5 h</td><td>10.5 h</td></tr>
+                                <tr><td>17:00&ndash;21:59</td><td>12 h</td><td>11 h</td><td>10 h</td></tr>
+                                <tr><td>22:00&ndash;22:59</td><td>11 h</td><td>10 h</td><td>9 h</td></tr>
+                                <tr><td>23:00&ndash;23:59</td><td>10 h</td><td>9 h</td><td>9 h</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Table 4: Day VFR -->
+                    <div class="reference-card">
+                        <h3>Max FDP &mdash; Day VFR Only <small>(s. 700.28(9))</small></h3>
+                        <table class="reference-table">
+                            <thead>
+                                <tr>
+                                    <th>Start Time of FDP</th>
+                                    <th>Max FDP</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>00:00&ndash;03:59</td><td>9 h</td></tr>
+                                <tr><td>04:00&ndash;04:59</td><td>10 h</td></tr>
+                                <tr><td>05:00&ndash;05:59</td><td>11 h</td></tr>
+                                <tr><td>06:00&ndash;06:59</td><td>12 h</td></tr>
+                                <tr><td>07:00&ndash;12:59</td><td>13 h</td></tr>
+                                <tr><td>13:00&ndash;16:59</td><td>12.5 h</td></tr>
+                                <tr><td>17:00&ndash;21:59</td><td>12 h</td></tr>
+                                <tr><td>22:00&ndash;22:59</td><td>11 h</td></tr>
+                                <tr><td>23:00&ndash;23:59</td><td>10 h</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Key Regulatory Limits -->
                     <div class="reference-card">
                         <h3>Key Regulatory Limits</h3>
                         <div class="limits-list">

@@ -1,261 +1,229 @@
 /**
  * FDP Calculator - Flight Duty Period Calculation Engine
  * Based on Transport Canada CAR 700 Subpart 7 (2021 Amendments)
- * 
- * This module calculates maximum Flight Duty Periods based on:
- * - Report time (local time)
- * - Number of flight sectors
- * - Acclimatization status
+ *
+ * Implements CAR 700.28(2), (3), (4), and (9) directly.
+ *
+ * Table lookup uses:
+ *  - Start time of FDP:
+ *      acclimatized   → local time at current location      (CAR 700.19(2)(a))
+ *      unacclimatized → local time at last acclimatized loc (CAR 700.19(2)(b))
+ *  - Average scheduled flight duration  (selects which sub-table to use)
+ *  - Number of scheduled flights        (selects the column within that sub-table)
+ *
+ * NOTE: Positioning is NOT counted as a flight per CAR 700.28(6).
  */
 
 const FDPCalculator = (function() {
     'use strict';
 
-    /**
-     * FDP Limits Table based on CAR 700.27
-     * Structure: reportTimeRange -> sectorRange -> maxFDP (in minutes)
-     * 
-     * Report times are in 24-hour format (local time)
-     * Sector ranges: 1-2, 3-4, 5+
-     */
-    const FDP_TABLE = {
-        // 0600-0659 Local
-        '0600-0659': {
-            '1-2': 780,   // 13:00
-            '3-4': 750,   // 12:30
-            '5+': 720     // 12:00
-        },
-        // 0700-1159 Local (optimal window)
-        '0700-1159': {
-            '1-2': 840,   // 14:00
-            '3-4': 810,   // 13:30
-            '5+': 780     // 13:00
-        },
-        // 1200-1359 Local
-        '1200-1359': {
-            '1-2': 780,   // 13:00
-            '3-4': 750,   // 12:30
-            '5+': 720     // 12:00
-        },
-        // 1400-1759 Local
-        '1400-1759': {
-            '1-2': 720,   // 12:00
-            '3-4': 690,   // 11:30
-            '5+': 660     // 11:00
-        },
-        // 1800-2159 Local
-        '1800-2159': {
-            '1-2': 660,   // 11:00
-            '3-4': 630,   // 10:30
-            '5+': 600     // 10:00
-        },
-        // 2200-0559 Local (WOCL - Window of Circadian Low)
-        '2200-0559': {
-            '1-2': 600,   // 10:00
-            '3-4': 570,   // 9:30
-            '5+': 540     // 9:00
-        }
+    // ─── Time bands (same nine rows for all four tables) ─────────────────────
+    //  Each entry: { key, startH (inclusive), endH (exclusive) }
+    const TIME_BANDS = [
+        { key: '0000-0359', startH: 0,  endH: 4  },
+        { key: '0400-0459', startH: 4,  endH: 5  },
+        { key: '0500-0559', startH: 5,  endH: 6  },
+        { key: '0600-0659', startH: 6,  endH: 7  },
+        { key: '0700-1259', startH: 7,  endH: 13 },
+        { key: '1300-1659', startH: 13, endH: 17 },
+        { key: '1700-2159', startH: 17, endH: 22 },
+        { key: '2200-2259', startH: 22, endH: 23 },
+        { key: '2300-2359', startH: 23, endH: 24 },
+    ];
+
+    // ─── FDP values (minutes) shared by 700.28(2), (3), (4) ──────────────────
+    //  All three subsection tables produce the same FDP values for a given
+    //  time band; only the flight-count thresholds that select col1/col2/col3
+    //  differ between subsections.
+    //  Columns: [col1 (low flight count), col2 (mid), col3 (high)]
+    const FDP_VALUES = {
+        '0000-0359': [540,  540,  540],   // 9h   / 9h   / 9h
+        '0400-0459': [600,  540,  540],   // 10h  / 9h   / 9h
+        '0500-0559': [660,  600,  540],   // 11h  / 10h  / 9h
+        '0600-0659': [720,  660,  600],   // 12h  / 11h  / 10h
+        '0700-1259': [780,  720,  660],   // 13h  / 12h  / 11h
+        '1300-1659': [750,  690,  630],   // 12.5h / 11.5h / 10.5h
+        '1700-2159': [720,  660,  600],   // 12h  / 11h  / 10h
+        '2200-2259': [660,  600,  540],   // 11h  / 10h  / 9h
+        '2300-2359': [600,  540,  540],   // 10h  / 9h   / 9h
     };
 
-    /**
-     * Reduction for unacclimatized crew members (in minutes)
-     * Applied when crew is not acclimatized to local time
-     */
-    const UNACCLIMATIZED_REDUCTION = 60; // 1 hour reduction
+    // ─── Column selection per avg flight duration ─────────────────────────────
+    //  Returns column index 0 / 1 / 2 given the number of scheduled flights.
+    //  'dayvfr' always returns 0 (single-column table per 700.28(9)).
+    function getColumnIndex(avgDuration, numFlights) {
+        switch (avgDuration) {
+            case 'lt30':    // CAR 700.28(2): 1-11 / 12-17 / 18+
+                return numFlights <= 11 ? 0 : numFlights <= 17 ? 1 : 2;
+            case '30to49':  // CAR 700.28(3): 1-7 / 8-11 / 12+
+                return numFlights <= 7  ? 0 : numFlights <= 11 ? 1 : 2;
+            case 'gte50':   // CAR 700.28(4): 1-4 / 5-6 / 7+
+                return numFlights <= 4  ? 0 : numFlights <= 6  ? 1 : 2;
+            case 'dayvfr':  // CAR 700.28(9): single column
+                return 0;
+            default:        // Fallback: treat as gte50
+                return numFlights <= 4  ? 0 : numFlights <= 6  ? 1 : 2;
+        }
+    }
 
-    /**
-     * Maximum absolute FDP limits
-     */
-    const MAX_FDP_ABSOLUTE = 840;  // 14 hours
-    const MIN_FDP_ABSOLUTE = 540;  // 9 hours
+    // ─── WOCL ─────────────────────────────────────────────────────────────────
+    const WOCL_START = 2 * 60;   // 02:00 local
+    const WOCL_END   = 6 * 60;   // 06:00 local (exclusive)
 
-    /**
-     * Window of Circadian Low (WOCL) definition
-     * 0200-0559 local time at place of departure
-     */
-    const WOCL_START = 2 * 60;    // 0200
-    const WOCL_END = 6 * 60;      // 0600
+    // ─── Utility functions ────────────────────────────────────────────────────
 
-    /**
-     * Convert time string (HH:MM) to minutes since midnight
-     */
     function timeToMinutes(timeStr) {
         if (!timeStr || typeof timeStr !== 'string') return null;
-        
         const parts = timeStr.split(':');
         if (parts.length !== 2) return null;
-        
-        const hours = parseInt(parts[0], 10);
-        const minutes = parseInt(parts[1], 10);
-        
-        if (isNaN(hours) || isNaN(minutes)) return null;
-        if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
-        
-        return hours * 60 + minutes;
+        const h = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        if (isNaN(h) || isNaN(m)) return null;
+        if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+        return h * 60 + m;
     }
 
-    /**
-     * Convert minutes to time string (HH:MM)
-     */
     function minutesToTime(totalMinutes) {
         if (totalMinutes === null || totalMinutes === undefined) return '--:--';
-        
-        // Handle negative or overflow values
         while (totalMinutes < 0) totalMinutes += 1440;
         totalMinutes = totalMinutes % 1440;
-        
-        const hours = Math.floor(totalMinutes / 60);
-        const minutes = totalMinutes % 60;
-        
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        const h = Math.floor(totalMinutes / 60);
+        const m = totalMinutes % 60;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     }
 
-    /**
-     * Format duration in minutes to readable string (Xh XXm)
-     */
     function formatDuration(totalMinutes) {
         if (totalMinutes === null || totalMinutes === undefined) return '--';
-        
-        const hours = Math.floor(totalMinutes / 60);
-        const minutes = totalMinutes % 60;
-        
-        if (hours === 0) return `${minutes}m`;
-        if (minutes === 0) return `${hours}h`;
-        return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
+        const h = Math.floor(totalMinutes / 60);
+        const m = totalMinutes % 60;
+        if (h === 0) return `${m}m`;
+        if (m === 0) return `${h}h`;
+        return `${h}h ${String(m).padStart(2, '0')}m`;
     }
 
-    /**
-     * Determine the report time range based on the hour
-     */
-    function getReportTimeRange(reportMinutes) {
-        const hour = Math.floor(reportMinutes / 60);
-        
-        if (hour >= 6 && hour < 7) return '0600-0659';
-        if (hour >= 7 && hour < 12) return '0700-1159';
-        if (hour >= 12 && hour < 14) return '1200-1359';
-        if (hour >= 14 && hour < 18) return '1400-1759';
-        if (hour >= 18 && hour < 22) return '1800-2159';
-        // 2200-0559 (covers 22, 23, 0, 1, 2, 3, 4, 5)
-        return '2200-0559';
+    // ─── Core lookup helpers ──────────────────────────────────────────────────
+
+    function getTimeBandKey(minutes) {
+        const hour = Math.floor(minutes / 60);
+        for (const band of TIME_BANDS) {
+            if (hour >= band.startH && hour < band.endH) return band.key;
+        }
+        return '0000-0359'; // safety fallback
     }
 
-    /**
-     * Determine sector range category
-     */
-    function getSectorRange(sectors) {
-        const numSectors = parseInt(sectors, 10);
-        if (numSectors <= 2) return '1-2';
-        if (numSectors <= 4) return '3-4';
-        return '5+';
-    }
-
-    /**
-     * Check if a time falls within WOCL (Window of Circadian Low)
-     * WOCL is defined as 0200-0559 local time
-     */
     function isInWOCL(timeMinutes) {
         return timeMinutes >= WOCL_START && timeMinutes < WOCL_END;
     }
 
     /**
-     * Check if duty period encroaches on WOCL
+     * Returns true if the duty period [startMin, startMin+durationMin) overlaps
+     * the WOCL window, accounting for midnight wrap-around.
      */
-    function encroachesWOCL(startMinutes, endMinutes) {
-        // Handle overnight duty
-        if (endMinutes < startMinutes) {
-            // Duty goes past midnight
-            // Check if WOCL period overlaps
-            return (startMinutes < WOCL_END) || (endMinutes > WOCL_START) || 
-                   (startMinutes <= WOCL_END && endMinutes >= WOCL_START);
+    function encroachesWOCL(startMin, durationMin) {
+        const endMin = startMin + durationMin;
+        // Generate WOCL minute-set and check overlap
+        // Simple approach: check if any WOCL boundary falls inside the duty period
+        const woclPoints = [WOCL_START, WOCL_END];
+        for (const wp of woclPoints) {
+            // Also check the next-day equivalent
+            for (const offset of [0, 1440]) {
+                const t = wp + offset;
+                if (t > startMin && t <= endMin) return true;
+            }
         }
-        
-        // Check if duty period overlaps with WOCL
-        return (startMinutes < WOCL_END && endMinutes > WOCL_START);
+        // Also check if duty entirely contains WOCL
+        if (startMin <= WOCL_START && endMin >= WOCL_END) return true;
+        return false;
     }
 
+    // ─── Main calculation ─────────────────────────────────────────────────────
+
     /**
-     * Calculate maximum FDP based on input parameters
-     * 
-     * @param {string} reportTime - Report time in HH:MM format
-     * @param {number|string} sectors - Number of flight sectors
-     * @param {string} acclimatizationStatus - 'acclimatized' or 'unacclimatized'
-     * @returns {Object} Calculation results
+     * Calculate maximum FDP per CAR 700.28.
+     *
+     * @param {string}        reportTime          - HH:MM local report time
+     * @param {number|string} flights             - Number of scheduled flights
+     *                                              (ignored for 'dayvfr')
+     * @param {string}        avgFlightDuration   - 'lt30' | '30to49' | 'gte50' | 'dayvfr'
+     * @param {string}        acclimatizationStatus - 'acclimatized' | 'unacclimatized'
+     * @param {string}        [refTime]           - HH:MM local time at last acclimatized
+     *                                              location; required when unacclimatized
+     * @returns {Object} Calculation result
      */
-    function calculate(reportTime, sectors, acclimatizationStatus) {
+    function calculate(reportTime, flights, avgFlightDuration, acclimatizationStatus, refTime) {
         const result = {
             success: false,
             maxFDP: null,
             maxFDPFormatted: '--:--',
+            maxFDPReadable: '--',
             endOfDuty: null,
             endOfDutyFormatted: '--:--',
             woclEncroachment: false,
-            woclInfo: 'No encroachment',
-            reportTimeRange: null,
-            sectorRange: null,
-            reductions: [],
+            woclInfo: 'No WOCL encroachment',
+            timeBand: null,
+            columnIndex: null,
+            acclimatized: acclimatizationStatus === 'acclimatized',
             error: null
         };
 
-        // Validate report time
+        // -- Validate report time --
         const reportMinutes = timeToMinutes(reportTime);
         if (reportMinutes === null) {
-            result.error = 'Invalid report time format. Please use HH:MM.';
+            result.error = 'Invalid report time. Use HH:MM format.';
             return result;
         }
 
-        // Validate sectors
-        const numSectors = parseInt(sectors, 10);
-        if (isNaN(numSectors) || numSectors < 1 || numSectors > 10) {
-            result.error = 'Invalid number of sectors. Please enter 1-10.';
-            return result;
+        // -- Validate flight count (not required for Day VFR) --
+        const numFlights = parseInt(flights, 10);
+        if (avgFlightDuration !== 'dayvfr') {
+            if (isNaN(numFlights) || numFlights < 1 || numFlights > 999) {
+                result.error = 'Invalid number of flights. Enter 1 or more.';
+                return result;
+            }
         }
 
-        // Get table lookup values
-        const reportTimeRange = getReportTimeRange(reportMinutes);
-        const sectorRange = getSectorRange(numSectors);
-        
-        result.reportTimeRange = reportTimeRange;
-        result.sectorRange = sectorRange;
-
-        // Look up base FDP
-        let maxFDP = FDP_TABLE[reportTimeRange][sectorRange];
-
-        // Apply unacclimatized reduction if applicable
-        if (acclimatizationStatus === 'unacclimatized') {
-            maxFDP -= UNACCLIMATIZED_REDUCTION;
-            result.reductions.push({
-                reason: 'Unacclimatized crew',
-                amount: UNACCLIMATIZED_REDUCTION
-            });
+        // -- Determine lookup time per CAR 700.19(2) --
+        //    Acclimatized   → local time at current location
+        //    Unacclimatized → local time at last acclimatized location
+        let lookupMinutes = reportMinutes;
+        if (acclimatizationStatus === 'unacclimatized' && refTime) {
+            const refMin = timeToMinutes(refTime);
+            if (refMin === null) {
+                result.error = 'Invalid reference time for acclimatized location. Use HH:MM format.';
+                return result;
+            }
+            lookupMinutes = refMin;
         }
 
-        // Ensure FDP is within absolute limits
-        maxFDP = Math.max(MIN_FDP_ABSOLUTE, Math.min(MAX_FDP_ABSOLUTE, maxFDP));
+        // -- Lookup FDP from table --
+        const timeBandKey = getTimeBandKey(lookupMinutes);
+        const colIndex    = getColumnIndex(avgFlightDuration, isNaN(numFlights) ? 1 : numFlights);
+        const maxFDP      = FDP_VALUES[timeBandKey][colIndex];
 
-        // Calculate end of duty time
-        let endOfDuty = reportMinutes + maxFDP;
-        
-        // Check for WOCL encroachment
-        const woclEncroachment = encroachesWOCL(reportMinutes, endOfDuty % 1440);
-        result.woclEncroachment = woclEncroachment;
-        
-        if (woclEncroachment) {
-            result.woclInfo = 'Duty encroaches WOCL (0200-0559)';
-        } else if (isInWOCL(reportMinutes)) {
-            result.woclInfo = 'Report time is within WOCL';
+        result.timeBand    = timeBandKey;
+        result.columnIndex = colIndex;
+
+        // -- WOCL check (always based on actual report time, not ref time) --
+        if (isInWOCL(reportMinutes)) {
+            result.woclInfo        = 'Report time is within WOCL (02:00\u201305:59)';
+            result.woclEncroachment = true;
+        } else if (encroachesWOCL(reportMinutes, maxFDP)) {
+            result.woclInfo        = 'Duty encroaches WOCL (02:00\u201305:59)';
+            result.woclEncroachment = true;
         }
 
-        // Populate successful result
-        result.success = true;
-        result.maxFDP = maxFDP;
-        result.maxFDPFormatted = minutesToTime(maxFDP);
-        result.maxFDPReadable = formatDuration(maxFDP);
-        result.endOfDuty = endOfDuty % 1440;
-        result.endOfDutyFormatted = minutesToTime(endOfDuty % 1440);
-        result.reportMinutes = reportMinutes;
-        
-        // Add next day indicator if duty extends past midnight
-        if (endOfDuty >= 1440) {
+        // -- End of duty time --
+        const endOfDutyTotal = reportMinutes + maxFDP;
+
+        result.success            = true;
+        result.maxFDP             = maxFDP;
+        result.maxFDPFormatted    = minutesToTime(maxFDP);
+        result.maxFDPReadable     = formatDuration(maxFDP);
+        result.endOfDuty          = endOfDutyTotal % 1440;
+        result.endOfDutyFormatted = minutesToTime(endOfDutyTotal % 1440);
+        result.reportMinutes      = reportMinutes;
+
+        if (endOfDutyTotal >= 1440) {
             result.endOfDutyFormatted += ' (+1)';
         }
 
@@ -263,51 +231,43 @@ const FDPCalculator = (function() {
     }
 
     /**
-     * Calculate remaining FDP given current elapsed time
+     * Calculate remaining FDP given elapsed minutes since report time.
+     *
+     * @param {string}        reportTime
+     * @param {number}        elapsedMinutes
+     * @param {number|string} flights
+     * @param {string}        avgFlightDuration
+     * @param {string}        acclimatizationStatus
+     * @param {string}        [refTime]
      */
-    function calculateRemaining(reportTime, elapsedMinutes, sectors, acclimatizationStatus) {
-        const fdpResult = calculate(reportTime, sectors, acclimatizationStatus);
-        
+    function calculateRemaining(reportTime, elapsedMinutes, flights, avgFlightDuration, acclimatizationStatus, refTime) {
+        const fdpResult = calculate(reportTime, flights, avgFlightDuration, acclimatizationStatus, refTime);
+
         if (!fdpResult.success) {
-            return {
-                remaining: null,
-                remainingFormatted: '--:--',
-                percentage: 0,
-                status: 'unknown'
-            };
+            return { remaining: null, remainingFormatted: '--', percentage: 0, status: 'unknown' };
         }
 
-        const remaining = fdpResult.maxFDP - elapsedMinutes;
+        const remaining  = fdpResult.maxFDP - elapsedMinutes;
         const percentage = Math.min(100, Math.max(0, (elapsedMinutes / fdpResult.maxFDP) * 100));
-        
+
         let status = 'good';
-        if (remaining <= 60) status = 'danger';
+        if (remaining <= 0)    status = 'exceeded';
+        else if (remaining <= 60)  status = 'danger';
         else if (remaining <= 120) status = 'warning';
 
         return {
             remaining: Math.max(0, remaining),
             remainingFormatted: formatDuration(Math.max(0, remaining)),
-            percentage: percentage,
-            status: status,
+            percentage,
+            status,
             maxFDP: fdpResult.maxFDP
         };
     }
 
-    /**
-     * Get FDP table for reference display
-     */
-    function getTable() {
-        return FDP_TABLE;
-    }
+    function getTable()      { return { FDP_VALUES, TIME_BANDS }; }
+    function getTimeRanges() { return TIME_BANDS.map(b => b.key); }
 
-    /**
-     * Get all time range options for dropdown
-     */
-    function getTimeRanges() {
-        return Object.keys(FDP_TABLE);
-    }
-
-    // Public API
+    // ─── Public API ───────────────────────────────────────────────────────────
     return {
         calculate,
         calculateRemaining,
@@ -317,13 +277,11 @@ const FDPCalculator = (function() {
         minutesToTime,
         formatDuration,
         WOCL_START,
-        WOCL_END,
-        MAX_FDP_ABSOLUTE,
-        MIN_FDP_ABSOLUTE
+        WOCL_END
     };
 })();
 
-// Export for use in other modules
+// Export for Node.js environments (testing)
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = FDPCalculator;
 }

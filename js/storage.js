@@ -397,6 +397,7 @@ const StorageManager = (function() {
                 hour12: false 
             }),
             sectors: dutyInfo.sectors || 2,
+            avgFlightDuration: dutyInfo.avgFlightDuration || 'gte50',
             acclimatized: dutyInfo.acclimatized !== false,
             maxFdpMinutes: dutyInfo.maxFdpMinutes || 840, // 14 hours default
             date: new Date().toISOString().split('T')[0]
@@ -412,7 +413,7 @@ const StorageManager = (function() {
     }
 
     /**
-     * Update active duty (e.g., change sectors)
+     * Update active duty (e.g., change flights)
      * 
      * @param {Object} updates - Fields to update
      * @returns {Object} Result with success status

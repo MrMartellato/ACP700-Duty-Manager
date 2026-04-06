@@ -8,7 +8,7 @@ A web-based Flight Duty Period (FDP) calculator and compliance tracker for Canad
 
 ### FDP Calculator
 - Calculate maximum Flight Duty Period based on report time
-- Accounts for number of flight sectors/legs (1-2, 3-4, 5+)
+- Accounts for number of flights/legs (1-2, 3-4, 5+)
 - Acclimatization status adjustments
 - Window of Circadian Low (WOCL) encroachment warnings
 
@@ -31,14 +31,14 @@ A web-based Flight Duty Period (FDP) calculator and compliance tracker for Canad
 - Data persists in browser LocalStorage
 
 ### Quick Reference
-- FDP lookup table by report time and sectors
+- FDP lookup table by report time and flights
 - Key regulatory limits at a glance
 
 ## Regulatory Limits (CAR 700 Subpart 7)
 
 | Parameter | Limit |
 |-----------|-------|
-| Maximum Flight Duty Period | 9-14 hours (varies by report time and sectors) |
+| Maximum Flight Duty Period | 9-14 hours (varies by report time and flights) |
 | Maximum Flight Time (Single Pilot) | 8 hours |
 | Maximum Flight Time (Augmented) | 13 hours |
 | Minimum Rest Period | 10-14 hours (based on duty length) |
@@ -92,12 +92,13 @@ ACP700 Duty Manager/
 - **Storage**: Browser LocalStorage
 - **Design**: Dark aviation-themed UI with responsive layout
 - **Fonts**: Outfit (UI) + JetBrains Mono (data display)
+- **Development Tool**: [Antigravity](https://antigravity.dev) AI coding assistant
 
 ## Usage
 
 ### Calculate FDP
 1. Enter your report time (local time)
-2. Select the number of flight sectors
+2. Select the number of flights
 3. Choose your acclimatization status
 4. Click "Calculate FDP" to see your maximum FDP and end-of-duty time
 

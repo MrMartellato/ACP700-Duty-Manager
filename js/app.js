@@ -42,6 +42,7 @@
         dutyInfo: document.getElementById('dutyInfo'),
         dutyStartTime: document.getElementById('dutyStartTime'),
         activeDutySectors: document.getElementById('activeDutySectors'),
+        activeAvgDuration: document.getElementById('activeAvgDuration'),
         
         flightTimeCard: document.getElementById('flightTimeCard'),
         flightCurrent: document.getElementById('flightCurrent'),
@@ -63,7 +64,10 @@
         fdpForm: document.getElementById('fdpForm'),
         reportTime: document.getElementById('reportTime'),
         sectors: document.getElementById('sectors'),
+        avgFlightDuration: document.getElementById('avgFlightDuration'),
         acclimatized: document.getElementById('acclimatized'),
+        refTimeGroup: document.getElementById('refTimeGroup'),
+        refTime: document.getElementById('refTime'),
         maxFdpResult: document.getElementById('maxFdpResult'),
         endDutyResult: document.getElementById('endDutyResult'),
         woclResult: document.getElementById('woclResult'),
@@ -138,12 +142,19 @@
         // Real-time FDP preview on input change
         elements.reportTime.addEventListener('change', previewFDP);
         elements.sectors.addEventListener('change', previewFDP);
-        elements.acclimatized.addEventListener('change', previewFDP);
+        elements.avgFlightDuration.addEventListener('change', previewFDP);
+        elements.acclimatized.addEventListener('change', function() {
+            const isUnacclimatized = elements.acclimatized.value === 'unacclimatized';
+            elements.refTimeGroup.style.display = isUnacclimatized ? 'block' : 'none';
+            previewFDP();
+        });
+        elements.refTime.addEventListener('change', previewFDP);
         
         // Duty tracking controls
         elements.btnStartDuty.addEventListener('click', handleStartDuty);
         elements.btnEndDuty.addEventListener('click', handleEndDuty);
         elements.activeDutySectors.addEventListener('change', handleSectorsChange);
+        elements.activeAvgDuration.addEventListener('change', handleSectorsChange);
     }
 
     /**
@@ -178,14 +189,16 @@
         
         const reportTime = elements.reportTime.value;
         const sectors = elements.sectors.value;
+        const avgFlightDuration = elements.avgFlightDuration.value;
         const acclimatization = elements.acclimatized.value;
+        const refTime = acclimatization === 'unacclimatized' ? elements.refTime.value : null;
         
         if (!reportTime) {
             showToast('Please enter a report time', 'warning');
             return;
         }
         
-        const result = FDPCalculator.calculate(reportTime, sectors, acclimatization);
+        const result = FDPCalculator.calculate(reportTime, sectors, avgFlightDuration, acclimatization, refTime);
         
         if (result.success) {
             elements.maxFdpResult.textContent = result.maxFDPReadable;
@@ -210,11 +223,13 @@
     function previewFDP() {
         const reportTime = elements.reportTime.value;
         const sectors = elements.sectors.value;
+        const avgFlightDuration = elements.avgFlightDuration.value;
         const acclimatization = elements.acclimatized.value;
+        const refTime = acclimatization === 'unacclimatized' ? elements.refTime.value : null;
         
         if (!reportTime) return;
         
-        const result = FDPCalculator.calculate(reportTime, sectors, acclimatization);
+        const result = FDPCalculator.calculate(reportTime, sectors, avgFlightDuration, acclimatization, refTime);
         
         if (result.success) {
             elements.maxFdpResult.textContent = result.maxFDPReadable;
@@ -520,16 +535,18 @@
             hour12: false 
         });
         
-        // Get sectors from the selector
+        // Get flights and avg duration from the selectors
         const sectors = elements.activeDutySectors.value;
+        const avgFlightDuration = elements.activeAvgDuration.value;
         
-        // Calculate max FDP based on report time and sectors
-        const fdpResult = FDPCalculator.calculate(reportTime, sectors, 'acclimatized');
-        const maxFdpMinutes = fdpResult.success ? fdpResult.maxFDP : 840;
+        // Calculate max FDP based on report time and flights
+        const fdpResult = FDPCalculator.calculate(reportTime, sectors, avgFlightDuration, 'acclimatized');
+        const maxFdpMinutes = fdpResult.success ? fdpResult.maxFDP : 780;
         
         const result = StorageManager.startDuty({
             reportTime: reportTime,
             sectors: parseInt(sectors),
+            avgFlightDuration: avgFlightDuration,
             maxFdpMinutes: maxFdpMinutes,
             acclimatized: true
         });
@@ -607,34 +624,38 @@
     }
 
     /**
-     * Handle sectors change during active duty
+     * Handle flights or avg duration change during active duty
      */
     function handleSectorsChange() {
         if (!state.currentDuty) return;
         
         const sectors = elements.activeDutySectors.value;
+        const avgFlightDuration = elements.activeAvgDuration.value;
         
         // Recalculate max FDP
         const fdpResult = FDPCalculator.calculate(
             state.currentDuty.reportTime, 
-            sectors, 
+            sectors,
+            avgFlightDuration,
             state.currentDuty.acclimatized ? 'acclimatized' : 'unacclimatized'
         );
         
-        const maxFdpMinutes = fdpResult.success ? fdpResult.maxFDP : 840;
+        const maxFdpMinutes = fdpResult.success ? fdpResult.maxFDP : 780;
         
-        // Update active duty
+        // Update active duty in storage
         StorageManager.updateActiveDuty({
             sectors: parseInt(sectors),
+            avgFlightDuration: avgFlightDuration,
             maxFdpMinutes: maxFdpMinutes
         });
         
         // Update state
         state.currentDuty.sectors = parseInt(sectors);
+        state.currentDuty.avgFlightDuration = avgFlightDuration;
         state.currentDuty.maxFdpMinutes = maxFdpMinutes;
         
         // Update display
-        elements.fdpMax.textContent = fdpResult.success ? fdpResult.maxFDPReadable : '14h';
+        elements.fdpMax.textContent = fdpResult.success ? fdpResult.maxFDPReadable : '13h';
         
         // Immediately update the FDP card
         updateDutyDisplay();
@@ -655,15 +676,17 @@
             elements.dutyInfo.style.display = 'flex';
             elements.dutyStartTime.textContent = activeDuty.reportTime;
             elements.activeDutySectors.value = activeDuty.sectors;
+            elements.activeAvgDuration.value = activeDuty.avgFlightDuration || 'gte50';
             elements.fdpCard.classList.add('active-duty');
             
             // Calculate and display max FDP
             const fdpResult = FDPCalculator.calculate(
                 activeDuty.reportTime, 
-                activeDuty.sectors.toString(), 
+                activeDuty.sectors.toString(),
+                activeDuty.avgFlightDuration || 'gte50',
                 activeDuty.acclimatized ? 'acclimatized' : 'unacclimatized'
             );
-            elements.fdpMax.textContent = fdpResult.success ? fdpResult.maxFDPReadable : '14h';
+            elements.fdpMax.textContent = fdpResult.success ? fdpResult.maxFDPReadable : '13h';
             
             // Start the timer
             startDutyTimer();
@@ -761,12 +784,13 @@
         elements.dutyInfo.style.display = 'none';
         elements.fdpCard.classList.remove('active-duty', 'warning', 'danger');
         elements.fdpCurrent.textContent = '0:00';
-        elements.fdpMax.textContent = '14:00';
+        elements.fdpMax.textContent = '13:00';
         elements.fdpProgress.style.width = '0%';
         elements.fdpRemaining.textContent = 'Not on duty';
         elements.fdpStatus.className = 'card-status status-good';
         elements.fdpStatus.textContent = 'OK';
         elements.activeDutySectors.value = '2';
+        elements.activeAvgDuration.value = 'gte50';
     }
 
     /**
