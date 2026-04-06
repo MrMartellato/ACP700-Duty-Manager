@@ -2,7 +2,9 @@
 
 A web-based Flight Duty Period (FDP) calculator and compliance tracker for Canadian pilots, based on **Transport Canada CAR 700 Subpart 7** (2021 Amendments).
 
-![ACP700 Duty Manager Screenshot](https://raw.githubusercontent.com/MrMartellato/ACP700-Duty-Manager/main/screenshot.png)
+![ACP700 Duty Manager Screenshot](https://raw.githubusercontent.com/MrMartellato/ACP700-Duty-Manager/main/screenshot.png?raw=true)
+
+🌐 **Live Site:** [https://mrmartellato.github.io/ACP700-Duty-Manager/](https://mrmartellato.github.io/ACP700-Duty-Manager/)
 
 ## Features
 
@@ -92,7 +94,7 @@ ACP700 Duty Manager/
 - **Storage**: Browser LocalStorage
 - **Design**: Dark aviation-themed UI with responsive layout
 - **Fonts**: Outfit (UI) + JetBrains Mono (data display)
-- **Development Tool**: [Antigravity](https://antigravity.dev) AI coding assistant
+- **Development Tool**: [Antigravity](https://antigravity.google) AI coding assistant
 
 ## Usage
 
